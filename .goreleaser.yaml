@@ -1,3 +1,4 @@
+version: 2
 project_name: red-tldr
 builds:
   - env: [CGO_ENABLED=0]
@@ -9,4 +10,3 @@ builds:
     goarch:
       - amd64
       - arm64
-      - 386
