@@ -4,28 +4,45 @@
 
 [![GitHub release](https://img.shields.io/github/release/Rvn0xsy/red-tldr.svg)](https://github.com/Rvn0xsy/red-tldr/releases)
 
-## 什么是 Red Team TL;DR ?
+## 什么是 Red Team TL;DR？
 
-red-tldr 是一个轻量级的文本搜索工具，它用于帮助红队工作人员快速的寻找到想要执行的命令、关键点，因此它比较适用于有一定经验的红队人员使用。
+red-tldr 是一个轻量级的红队命令速查工具，帮助有经验的红队人员快速找到所需的命令、技术和关键要点 —— 就像一个专为攻击性安全打造的 `man` 命令。
 
-## 为什么选择 Red Team TL;DR ?
+从 v0.5.0 开始，red-tldr 内置了 [MCP](https://modelcontextprotocol.io/) 服务器，AI 助手（如 Claude Desktop、Cursor）可以直接查询你的红队知识库。
 
-在我的日常工作中，需要记忆很多命令，我多数只知道它的开头，人的记忆是有限的，而通过搜索引擎寻找我想要的内容又很繁琐，我想我们需要一个像Linux那样的`man`命令。
+## 为什么选择 Red Team TL;DR？
 
+在日常红队工作中，需要记忆大量命令，而多数时候你只记得开头几个字符。通过搜索引擎翻找文档既慢又嘈杂。red-tldr 从你自己掌控的策展数据库中给出即时、离线、确定性的答案。
+
+## 特性
+
+- **全文搜索** — 基于 Bleve 的 BM25 加权搜索（name×5、tags×3、data×1），支持模糊匹配
+- **多格式输出** — `text`（带颜色的终端输出）、`json`、`markdown`
+- **MCP 服务器** — 内置 Model Context Protocol 服务器，支持 AI 助手集成（stdio + Streamable HTTP）
+- **MITRE ATT&CK 映射** — 条目可标记战术和技术编号
+- **增强数据模型** — category、platforms、mitre_attack、metadata（author/source/confidence）、related
+- **向后兼容** — 兼容现有 YAML 数据库，新增字段均为可选
+- **离线优先** — 无需云服务、无需 API Key，完全确定性输出
+- **安全修复** — 修复了 zip-slip 漏洞，所有解压操作均有路径校验
 
 ## 快速开始
 
-> **新版本已经支持自动更新数据库！**
+### 安装
 
-### 安装 red-tldr
-
-#### Mac OS 安装
+#### macOS
 
 ```bash
 $ brew install red-tldr
 ```
 
-#### Git安装
+#### Arch Linux
+
+```bash
+# AUR: https://aur.archlinux.org/packages/red-tldr
+$ sudo pacman -S red-tldr
+```
+
+#### 源码编译
 
 ```bash
 $ git clone https://github.com/Rvn0xsy/red-tldr
@@ -33,16 +50,7 @@ $ cd red-tldr
 $ go build
 ```
 
-#### Arch Linux 安装
-
-```bash
-# yaourt 或者 yay https://aur.archlinux.org/packages/red-tldr
-$ sudo pacman -S red-tldr 
-```
-
-
 #### 二进制安装
-
 
 下载 [Release](https://github.com/Rvn0xsy/red-tldr/releases/) 版本。
 
@@ -51,52 +59,92 @@ $ tar -zxvf red-tldr_latest_linux_amd64.tar.gz
 $ ./red-tldr
 ```
 
-> 建议将red-tldr加入你的环境变量中进行使用
+> 建议将 red-tldr 加入环境变量中使用。
 
+## 使用方法
 
-## 简单示例
-
-1. 关键字搜索
+### 搜索
 
 ```bash
+# 关键字搜索
 $ red-tldr mimikatz
 ```
 
 ![search-mimikatz](./images/img_1.png)
 
-2. 模糊匹配
-
 ```bash
+# 模糊匹配 — 只需输入几个字符
 $ red-tldr mi
 ```
 
 ![Fuzzy-match](./images/img_2.png)
 
-Select Number : 0
-
-> 当存在多个结果时，可以跟进数字索引决定结果输出
+当存在多个结果时，输入数字索引选择：
 
 ![Select-Number](./images/img_3.png)
 
-
-3. 更新索引文件
+### 输出格式
 
 ```bash
-$ red-tldr update
+# JSON 输出
+$ red-tldr mimikatz -f json
+
+# Markdown 输出
+$ red-tldr mimikatz -f markdown
 ```
 
-4. 更新数据库文件
+### 更新与升级
 
 ```bash
+# 重建本地索引（JSON + Bleve）
+$ red-tldr update
+
+# 从 GitHub 下载最新数据库
 $ red-tldr upgrade
 ```
 
+## MCP 服务器
+
+red-tldr 内置 MCP 服务器，可以将红队知识库暴露给 AI 助手使用。
+
+### 工具列表
+
+| 工具 | 说明 |
+|------|------|
+| `search_redteam_commands` | 按关键字、平台、分类、战术或技术搜索命令 |
+| `get_command_details` | 获取指定命令条目的完整详情 |
+| `list_techniques` | 列出数据库中的 MITRE ATT&CK 技术 |
+
+### stdio 模式（Claude Desktop / Cursor）
+
+```bash
+$ red-tldr serve
+```
+
+在 Claude Desktop 配置文件（`claude_desktop_config.json`）中添加：
+
+```json
+{
+  "mcpServers": {
+    "red-tldr": {
+      "command": "red-tldr",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+### Streamable HTTP 模式
+
+```bash
+$ red-tldr serve --http --addr localhost:8080 --endpoint /mcp
+```
 
 ## 配置文件
 
-默认配置文件路径：`HOME/.red-tldr/config.toml`
+默认路径：`~/.red-tldr/config.toml`
 
-```
+```toml
 [red-tldr]
   index-update = false
   github-update = false
@@ -104,30 +152,57 @@ $ red-tldr upgrade
   color = true
 ```
 
-|    配置项   | 描述 |  类型  |
-| ----------- | ----------- |  ----------- |
-| index-update| 数据库索引文件是否自动更新   |   Bool |
-| github-update   |  数据库文件是否从github自动更新 | Bool |
-| path  | 数据库文件存放路径 | String |
-| color | 高亮输出命令 | Bool |
+| 配置项 | 说明 | 类型 |
+|--------|------|------|
+| index-update | 搜索时是否自动重建索引 | Bool |
+| github-update | 是否从 GitHub 自动更新数据库 | Bool |
+| path | 数据库文件存放路径 | String |
+| color | 终端输出是否带颜色高亮 | Bool |
 
+## 数据模型
 
+每个条目是 [red-tldr-db](https://github.com/Rvn0xsy/red-tldr-db) 仓库中的一个 YAML 文件。v0.5.0 的增强格式支持额外字段，同时保持向后兼容：
 
+```yaml
+name: mimikatz-sekurlsa
+tags:
+  - mimikatz
+  - credentials
+  - lsass
+data: |
+  # Mimikatz Sekurlsa
+  ```
+  privilege::debug
+  sekurlsa::logonpasswords
+  ```
+category: credential-access
+platforms:
+  - windows
+mitre_attack:
+  tactics:
+    - credential-access
+  techniques:
+    - T1003.001
+metadata:
+  author: Rvn0xsy
+  confidence: high
+related:
+  - mimikatz-dpapi
+```
+
+所有新增字段（`category`、`platforms`、`mitre_attack`、`metadata`、`related`）均为可选 —— 现有 YAML 文件无需修改即可正常使用。
 
 ## 贡献
 
-## 为 red-tldr 做贡献
+red-tldr 是一个免费且开源的项目，我们欢迎任何人贡献力量。
 
-red-tldr 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
+* 使用过程中遇到问题，请通过 [Issues](https://github.com/Rvn0xsy/red-tldr/issues) 反馈。
+* Bug 修复请提交 Pull Request 到 **dev** 分支。
+* 新功能请先创建 Issue 描述方案，采纳后再提交 PR。
+* 欢迎改进文档，帮助更多人使用 red-tldr。
+* 联系方式：rvn0xsy@gmail.com
 
-* 在使用过程中出现任何问题，可以通过 [issues](https://github.com/Rvn0xsy/red-tldr/issues) 来反馈。
-* Bug 的修复可以直接提交 Pull Request 到 dev 分支。
-* 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
-* 欢迎对说明文档做出改善，帮助更多的人使用 red-tldr，特别是英文文档。
-* 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
-* 如果你有任何其他方面的问题或合作，欢迎发送邮件至 rvn0xsy@gmail.com 。
-
-**提醒：和项目相关的问题最好在 [issues](https://github.com/Rvn0xsy/red-tldr/issues) 中反馈，这样方便其他有类似问题的人可以快速查找解决方法，并且也避免了我们重复回答一些问题。**
+**提醒：项目相关问题请优先在 [Issues](https://github.com/Rvn0xsy/red-tldr/issues) 中反馈，方便其他人搜索解决方案。**
 
 ## Stargazers over time
 

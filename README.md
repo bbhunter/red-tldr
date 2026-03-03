@@ -7,28 +7,45 @@
 
 [![GitHub release](https://img.shields.io/github/release/Rvn0xsy/red-tldr.svg)](https://github.com/Rvn0xsy/red-tldr/releases)
 
-## What is Red Team TL;DR ?
+## What is Red Team TL;DR?
 
-red-tldr is a lightweight text search tool, which is used to help red team staff quickly find the commands and key points they want to execute, so it is more suitable for use by red team personnel with certain experience.
+red-tldr is a lightweight red team command lookup tool. It helps experienced red team operators quickly find the commands, techniques, and key points they need — like a `man` command built for offensive security.
 
-## Why Red Team TL;DR ?
+Starting from v0.5.0, red-tldr also ships with a built-in [MCP](https://modelcontextprotocol.io/) server, so AI assistants like Claude Desktop and Cursor can query your red team knowledge base directly.
 
-In my daily work, I need to memorize a lot of commands. Most of me only know the beginning of it. Human memory is limited. It is tedious to find what I want through search engines. I think we need a Linux-like one. `man` command.
+## Why Red Team TL;DR?
 
-## Quick start
+In daily red team work, you need to memorize hundreds of commands — and usually you only remember the first few characters. Searching through documentation or search engines is slow and noisy. red-tldr gives you instant, offline, deterministic answers from a curated database you control.
 
-> **The new version already supports automatic update of the database！**
+## Features
 
+- **Full-text search** — Bleve-powered BM25 search with weighted scoring (name×5, tags×3, data×1) and fuzzy matching
+- **Multi-format output** — `text` (colored terminal), `json`, `markdown`
+- **MCP Server** — Built-in Model Context Protocol server for AI assistant integration (stdio + Streamable HTTP)
+- **MITRE ATT&CK mapping** — Entries can be tagged with tactics and techniques
+- **Enhanced data model** — category, platforms, mitre_attack, metadata (author/source/confidence), related entries
+- **Backward compatible** — Works with existing YAML databases, new fields are optional
+- **Offline-first** — No cloud dependencies, no API keys, fully deterministic
+- **Secure** — Zip-slip vulnerability fixed, path validation on all archive operations
 
-### Install Red Team TL;DR
+## Quick Start
 
-#### Mac OS Install
+### Install
+
+#### macOS
 
 ```bash
 $ brew install red-tldr
 ```
 
-#### For Git Install
+#### Arch Linux
+
+```bash
+# AUR: https://aur.archlinux.org/packages/red-tldr
+$ sudo pacman -S red-tldr
+```
+
+#### From Source
 
 ```bash
 $ git clone https://github.com/Rvn0xsy/red-tldr
@@ -36,66 +53,101 @@ $ cd red-tldr
 $ go build
 ```
 
-#### For Arch Linux
+#### Binary
 
-```bash
-# yaourt or yay https://aur.archlinux.org/packages/red-tldr
-$ sudo pacman -S red-tldr 
-```
-
-#### For Binary
-
-Download [Release](https://github.com/Rvn0xsy/red-tldr/releases/) version.
+Download from [Releases](https://github.com/Rvn0xsy/red-tldr/releases/).
 
 ```bash
 $ tar -zxvf red-tldr_latest_linux_amd64.tar.gz
 $ ./red-tldr
 ```
 
-> It is recommended to add red-tldr to the environment variables of the current user
+> It is recommended to add red-tldr to your PATH.
 
+## Usage
 
-## Example
-
-1. Keyword Search
+### Search
 
 ```bash
+# Keyword search
 $ red-tldr mimikatz
 ```
 
 ![search-mimikatz](./images/img_1.png)
 
-2. Fuzzy matching
-
 ```bash
+# Fuzzy matching — type a few characters
 $ red-tldr mi
 ```
 
 ![Fuzzy-match](./images/img_2.png)
 
-Select Number : 0
-> When there are multiple results, you can follow the digital index to determine the result output
+When multiple results are found, select by number:
 
 ![Select-Number](./images/img_3.png)
 
-3. Update index file
+### Output Formats
 
 ```bash
-$ red-tldr update
+# JSON output
+$ red-tldr mimikatz -f json
+
+# Markdown output
+$ red-tldr mimikatz -f markdown
 ```
 
-4. Update database file
+### Update & Upgrade
 
 ```bash
+# Rebuild local index (JSON + Bleve)
+$ red-tldr update
+
+# Download latest database from GitHub
 $ red-tldr upgrade
 ```
 
-## Configuration file
+## MCP Server
 
-Default configuration file path:`HOMEDIR/.red-tldr/config.toml`
+red-tldr includes a built-in MCP server that exposes your red team knowledge base to AI assistants.
 
+### Tools
 
+| Tool | Description |
+|------|-------------|
+| `search_redteam_commands` | Search commands by keyword, platform, category, tactic, or technique |
+| `get_command_details` | Get full details of a specific command entry |
+| `list_techniques` | List available MITRE ATT&CK techniques in the database |
+
+### stdio Mode (Claude Desktop / Cursor)
+
+```bash
+$ red-tldr serve
 ```
+
+Add to your Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "red-tldr": {
+      "command": "red-tldr",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+### Streamable HTTP Mode
+
+```bash
+$ red-tldr serve --http --addr localhost:8080 --endpoint /mcp
+```
+
+## Configuration
+
+Default config path: `~/.red-tldr/config.toml`
+
+```toml
 [red-tldr]
   index-update = false
   github-update = false
@@ -103,23 +155,55 @@ Default configuration file path:`HOMEDIR/.red-tldr/config.toml`
   color = true
 ```
 
+| Item | Description | Type |
+|------|-------------|------|
+| index-update | Auto-rebuild index on search | Bool |
+| github-update | Auto-download database from GitHub | Bool |
+| path | Database storage path | String |
+| color | Colored terminal output | Bool |
 
-|    Configuration item   | Description |  Type  |
-| ----------- | ----------- |  ----------- |
-| index-update| Whether the database index file is automatically updated   |   Bool |
-| github-update   |  Whether the database file is automatically updated from github | Bool |
-| path  | Database file storage path | String |
-| color | Print highlight command | Bool |
+## Data Model
+
+Each entry is a YAML file in the [red-tldr-db](https://github.com/Rvn0xsy/red-tldr-db) repository. The enhanced format (v0.5.0+) supports additional fields while remaining backward compatible:
+
+```yaml
+name: mimikatz-sekurlsa
+tags:
+  - mimikatz
+  - credentials
+  - lsass
+data: |
+  # Mimikatz Sekurlsa
+  ```
+  privilege::debug
+  sekurlsa::logonpasswords
+  ```
+category: credential-access
+platforms:
+  - windows
+mitre_attack:
+  tactics:
+    - credential-access
+  techniques:
+    - T1003.001
+metadata:
+  author: Rvn0xsy
+  confidence: high
+related:
+  - mimikatz-dpapi
+```
+
+All new fields (`category`, `platforms`, `mitre_attack`, `metadata`, `related`) are optional — existing YAML files work without modification.
 
 ## Contributing
 
-Interested in getting involved? We would like to help you!
+We welcome contributions!
 
-* Take a look at our [issues list](https://github.com/Rvn0xsy/red-tldr/issues) and consider sending a Pull Request to **dev branch**.
-* If you want to add a new feature, please create an issue first to describe the new feature, as well as the implementation approach. Once a proposal is accepted, create an implementation of the new features and submit it as a pull request.
-* Sorry for my poor English. Improvements for this document are welcome, even some typo fixes.
-* If you have great ideas, send an email to rvn0xsy@gmail.com.
-
+* Report bugs via [Issues](https://github.com/Rvn0xsy/red-tldr/issues).
+* Submit bug fixes as Pull Requests to the **dev** branch.
+* For new features, create an issue first to discuss the approach before submitting a PR.
+* Documentation improvements are always welcome.
+* Contact: rvn0xsy@gmail.com
 
 ## Stargazers over time
 
