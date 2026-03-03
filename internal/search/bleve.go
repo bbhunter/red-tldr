@@ -219,13 +219,36 @@ func (e *BleveEngine) FuzzySearch(keyword string, limit int) ([]db.SearchResult,
 		limit = 20
 	}
 
-	fuzzyQ := bleve.NewFuzzyQuery(keyword)
-	fuzzyQ.SetFuzziness(2)
+	// Try prefix query first (mi → mimikatz), then fuzzy as fallback
+	prefixName := bleve.NewPrefixQuery(keyword)
+	prefixName.SetField("name")
+	prefixName.SetBoost(5.0)
 
-	req := bleve.NewSearchRequestOptions(fuzzyQ, limit, 0, false)
+	prefixTags := bleve.NewPrefixQuery(keyword)
+	prefixTags.SetField("tags")
+	prefixTags.SetBoost(3.0)
+
+	prefixData := bleve.NewPrefixQuery(keyword)
+	prefixData.SetField("data")
+	prefixData.SetBoost(1.0)
+
+	prefixQ := bleve.NewDisjunctionQuery(prefixName, prefixTags, prefixData)
+
+	req := bleve.NewSearchRequestOptions(prefixQ, limit, 0, false)
 	req.Fields = []string{"name", "tags", "category", "platforms", "tactics", "techniques", "data"}
 
 	searchResult, err := e.index.Search(req)
+	if err == nil && len(searchResult.Hits) > 0 {
+		return e.hitsToResults(searchResult), nil
+	}
+
+	fuzzyQ := bleve.NewFuzzyQuery(keyword)
+	fuzzyQ.SetFuzziness(2)
+
+	req = bleve.NewSearchRequestOptions(fuzzyQ, limit, 0, false)
+	req.Fields = []string{"name", "tags", "category", "platforms", "tactics", "techniques", "data"}
+
+	searchResult, err = e.index.Search(req)
 	if err != nil {
 		return nil, fmt.Errorf("fuzzy search failed: %w", err)
 	}

@@ -133,7 +133,21 @@ func bleveSearch(keyword string, indexPath string, dbDir string, r *render.Rende
 		return
 	}
 
-	displayResults(results, dbDir, r)
+	// Exact match found — display directly
+	if len(results) > 0 {
+		displayResults(results, dbDir, r)
+		return
+	}
+
+	// No exact match — try fuzzy search (edit distance <= 2)
+	results, err = engine.FuzzySearch(keyword, 20)
+	if err == nil && len(results) > 0 {
+		displayResults(results, dbDir, r)
+		return
+	}
+
+	// Fuzzy also empty — fall back to basic substring search
+	fallbackSearch(keyword, dbDir, r)
 }
 
 func fallbackSearch(keyword string, dbDir string, r *render.Renderer) {
